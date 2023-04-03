@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>DataAnalysisGPT</title>
+    <style>
+        body {
+            background-color: white;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #333;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 30px;
+            text-align: center;
+        }
+        .upload-form h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+        .upload-form label {
+            font-size: 16px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .upload-form input[type="file"] {
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        .upload-form input[type="submit"] {
+            font-size: 16px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .upload-form input[type="submit"]:hover {
+            background-color: #0062cc;
+        }
+        .analysis {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 30px;
+            margin-top: 30px;
+        }
+        .analysis h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+        .analysis pre {
+            white-space: pre-wrap;
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">Analysis GPT</div>
+        </header>
+        <main>
+            <section class="upload-form">
+                <h2>Upload CSV File</h2>
+                <form method="post" action="/upload" enctype="multipart/form-data">
+                    <label for="file-input" style="text-align: center;"></label>
+                    <input type="file" name="file" accept=".csv" id="file-input">
+                    <br><br>
+                    <input type="submit" value="Upload">
+                </form>
+            </section>
+            <section class="analysis">
+                <h2>Analysis Results</h2>
+                <pre id="analysis">
+                    {% if results %}
+                    <p>{{ results.description }}</p>
+                    {% endif %}
+                </pre>
+            </section>
+        </main>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        const analysisIntroduction = document.getElementById("analysis").textContent.trim();
+        if (analysisIntroduction !== "") {
+            $(document).ready(function() {
+                $.ajax({
+                    url: '/additional_results',
+                    type: 'POST',
+                    contentType: 'application/json;charset=UTF-8',
+                    data: JSON.stringify({results: '{{ results|safe|tojson }}' }),
+                    success: function(data) {
+                        $('#analysis').append('<p>' + data + '</p>');
+                    },
+                    error: function(xhr, status, error) {
+                        console.log(xhr.responseText);
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>
