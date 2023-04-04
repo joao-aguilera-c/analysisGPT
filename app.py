@@ -48,17 +48,18 @@ Also, as you're a data analyst, talk about relevant interpretation you found reg
     # description = response.choices[0].message.content.strip()
     # # Add the number of rows and columns to the description
     # # description += f"\n\nThe CSV file has {num_rows} rows and {num_cols} columns."
-    description = """This CSV file contains data of 50,000 job applicants' details. The column names are First Name, Last Name, Email, Application Date, Country, YOE (Years of Experience), Seniority, Technology, Code Challenge Score, and Technical Interview Score. The data seems to be related to job applications, including the candidate's personal information, professional background, and performance scores in code challenges and technical interviews.
+    description = '''This CSV file contains data of 50,000 job applicants' details. The column names are First Name, Last Name, Email, Application Date, Country, YOE (Years of Experience), Seniority, Technology, Code Challenge Score, and Technical Interview Score. The data seems to be related to job applications, including the candidate's personal information, professional background, and performance scores in code challenges and technical interviews.
 
 Based on the given data, one could infer that this dataset is of candidate profiles who applied for a job at a company. The company may have screened candidates based on their application date, YOE, seniority in their field, preferred technology, and code challenge and technical interview scores. From this data, the company can analyze the candidates in the order of their preference and select the best candidate for the job role. It could also be used to study hiring patterns across various countries.
 
-Distribution graphs and statistical tests can be performed on the given dataset to understand the frequency of candidates for each technology, seniority and country-wise. Interrelationships between variables can also be studied to determine which factors are most likely to influence candidate selection, such as preferred technology, seniority, or country."""
+Distribution graphs and statistical tests can be performed on the given dataset to understand the frequency of candidates for each technology, seniority and country-wise. Interrelationships between variables can also be studied to determine which factors are most likely to influence candidate selection, such as preferred technology, seniority, or country.'''
 
     # Return results, a dictionary with the messages and the description
-    return {
+    results = {
         "messages": messages,
         "description": description
     }
+    return results
 
 # Define the home page route
 @app.route('/')
@@ -90,7 +91,6 @@ def additional_results():
     # analysisIntroduction = data['analysisIntroduction']
     results = results_json.get('results')
     # convert string json to dict
-    results = json.dumps(results)
     results = json.loads(results)
     print("Generating additional results...")
     additional_results = "Additional results"
