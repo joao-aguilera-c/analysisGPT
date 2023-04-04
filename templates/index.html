@@ -113,12 +113,27 @@
     <script>
         const analysisIntroduction = document.getElementById("analysis").textContent.trim();
         if (analysisIntroduction !== "") {
+            const resultsJson = {
+                messages: [
+                    {
+                        role: '{{ results.messages[0].role|safe|tojson }}',
+                        content: '{{ results.messages[0].content|safe|tojson }}'
+                    },
+                    {
+                        role: '{{ results.messages[1].role|safe|tojson }}',
+                        content: '{{ results.messages[1].content|safe|tojson }}'
+                    }
+                ],
+                description: '{{ results.description|safe|tojson }}'
+            
+            };
+
             $(document).ready(function() {
                 $.ajax({
                     url: '/additional_results',
                     type: 'POST',
                     contentType: 'application/json;charset=UTF-8',
-                    data: JSON.stringify({results: '{{ results|safe|tojson }}' }),
+                    data: JSON.stringify(resultsJson),
                     success: function(data) {
                         $('#analysis').append('<p>' + data + '</p>');
                     },
