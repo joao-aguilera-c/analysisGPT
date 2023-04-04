@@ -86,18 +86,25 @@ def upload():
 # # Define the route for additional results
 @app.route('/additional_results', methods=['POST'])
 def additional_results():
-    results_json = request.get_json()
-    # analysisIntroduction = data['analysisIntroduction']
-    results = results_json.get('results')
-    # convert string json to dict
-    results = json.dumps(results)
-    results = json.loads(results)
+    # TODO implement handler for malformed body
+    payload = request.get_json()  # this is already a dictionary
+    # TODO parse dictionary to object (Pydantic can be a good solution)
+    
+    results = payload.get('results')
+
     print("Generating additional results...")
-    additional_results = "Additional results"
+    expensive_calculation()
     print("Additional results generated!")
-    # Return the additional results
+
+    return json.dumps({
+        "data": results,
+        "result": "Success"
+    })
+
+
+def expensive_calculation():
     sleep(3)
-    return jsonify(additional_results)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
