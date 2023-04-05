@@ -10,9 +10,6 @@ import matplotlib.pyplot as plt
 
 app = Flask(__name__)
 
-# Set up OpenAI API credentials
-openai.api_key = os.getenv("OPENAI_KEY")
-
 def get_data_description(df):
     # Create a prompt for the GPT system
     prompt = """You are AnalysisGPT, a large language model trained by OpenAI. Your mission is to describe a csv file as a data analyst would.
