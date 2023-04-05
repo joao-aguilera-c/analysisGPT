@@ -287,4 +287,10 @@ def additional_results():
 
 
 if __name__ == '__main__':
+    # if doesn't exist, create data and static folders
+    if not os.path.exists('data'):
+        os.makedirs('data')
+    if not os.path.exists('static'):
+        os.makedirs('static')
+
     app.run(debug=True)
