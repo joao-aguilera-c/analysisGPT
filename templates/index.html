@@ -38,6 +38,19 @@
             padding: 30px;
             text-align: center;
         }
+        .inside-upload-form {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding-top: 30px;
+            padding-right: 55px;
+            padding-bottom: 30px;
+            padding-left: 55px;
+            text-align: center;
+        }        
         .upload-form h2 {
             margin-top: 0;
             margin-bottom: 15px;
@@ -49,7 +62,7 @@
             text-align: center;
         }
         .upload-form input[type="file"] {
-            font-size: 16px;
+            font-size: 20px;
             margin-bottom: 15px;
         }
         .upload-form input[type="submit"] {
@@ -64,6 +77,63 @@
         }
         .upload-form input[type="submit"]:hover {
             background-color: #0062cc;
+        }
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+        }
+        
+        .file-input-wrapper span {
+            display: inline-block;
+            width: 200px;
+            padding: 8px;
+            border-radius: 5px;
+            background-color: #f1f1f1;
+            color: #333;
+            cursor: pointer;
+            text-align: center;
+        }
+        
+        .file-input-wrapper:hover span {
+            background-color: #ddd;
+        }
+        
+        .file-input-wrapper input[type=file]:focus + span {
+            outline: 1px dotted #000;
+            outline: -webkit-focus-ring-color auto 5px;
+        }
+        .api-key-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 2px;
+            margin-right: 0px;
+            margin-bottom: 49px;
+            margin-left: 0px;       
+        }
+        
+        input[type="password"] {
+            font-size: 20px;
+            padding: 10px 15px;
+            width: 300px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            outline: none;
+            text-align:center;
+        }
+        
+        input[type="password"]:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
         }
         .analysis {
             border: 1px solid #ccc;
@@ -83,18 +153,21 @@
             margin-bottom: 0;
             margin: 0;
             padding: 0;
-        }.code-box {
+        }
+        .code-box {
             background-color: #212121; /* set the background color to a dark gray */
             color: #fff; /* set the text color to white */
             padding: 10px; /* add some padding */
             margin-bottom: 20px; /* add some margin to separate this section from others */
             border-radius: 5px; /* add some border radius to round the corners */
-        }.image-box {
+        }
+        .image-box {
             text-align: center;
             max-width: 100%;
             overflow: hidden;
             margin: 10px 0;
-        }.hr {
+        }
+        .hr {
             height: 1px;
             border: 0;
             background-color: #dddddd;
@@ -109,12 +182,20 @@
         </header>
         <main>
             <section class="upload-form">
-                <h2>Upload CSV File</h2>
                 <form method="post" action="/upload" enctype="multipart/form-data">
-                    <label for="file-input" style="text-align: center;"></label>
-                    <input type="file" name="file" accept=".csv" id="file-input">
-                    <br><br>
-                    <input type="submit" value="Upload">
+                    <div class="api-key-container">
+                        <input type="password" id="openai-api-key" name="openai-api-key" placeholder="Enter your API Key" />
+                    </div>
+                    <h2>Upload CSV File</h2>
+                    <div class="inside-upload-form">
+                        <label for="file-input">Choose a file:</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" name="file" accept=".csv" id="file-input" onchange="document.getElementById('file-name').innerHTML = this.value.split('\\').pop()">
+                            <span id="file-name">No file selected</span>
+                        </div>
+                        <br>
+                        <input type="submit" value="Upload">
+                    </div>
                 </form>
             </section>
             <section class="analysis">
@@ -129,6 +210,23 @@
     </div>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelector('.upload-form form').addEventListener('submit', function(event) {
+                event.preventDefault();
+                const apiKey = document.getElementById('openai-api-key').value;
+                document.cookie = `openai-api-key=${apiKey}`;
+                this.submit();
+            });
+        });
+
+        // Check if the cookie exists
+        if (document.cookie.indexOf('openai-api-key=') !== -1) {
+            // If the cookie exists, retrieve its value
+            const cookieValue = document.cookie.split('openai-api-key=')[1].split(';')[0];
+            // Fill the password input with the cookie value
+            document.getElementById('openai-api-key').value = cookieValue;
+        }
+
         const analysisIntroduction = document.getElementById("analysis").textContent.trim();
         if (analysisIntroduction !== "") {
             const resultsJson = {
