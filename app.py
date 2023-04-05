@@ -247,14 +247,16 @@ def upload():
     # Get the uploaded file
     file = request.files['file']
 
+    file_dir = f'data/{file.filename}'
+
     #save the file to the server
-    file.save(f'data/{file.filename}')
+    file.save(file_dir)
 
     # get the file delimiter
-    delimiter = get_delimiter(file.filename)
+    delimiter = get_delimiter(file_dir)
 
     # Read the CSV file into a Pandas dataframe
-    df = pd.read_csv(file.filename, delimiter=delimiter)
+    df = pd.read_csv(file_dir, delimiter=delimiter)
 
     # save the dataframe to a parquet file
     df.to_parquet("data/data.parquet")
@@ -273,7 +275,7 @@ def upload():
 def additional_results():
     results_json = request.get_json()
 
-    df = pd.read_parquet("/data/data.parquet")
+    df = pd.read_parquet("data/data.parquet")
     print("Generating additional results...")
     additional_results = get_additional_results(results_json, df)
  
@@ -287,4 +289,10 @@ def additional_results():
 
 
 if __name__ == '__main__':
+    # if doesn't exist, create data and static folders
+    if not os.path.exists('data'):
+        os.makedirs('data')
+    if not os.path.exists('static'):
+        os.makedirs('static')
+
     app.run(debug=True)
