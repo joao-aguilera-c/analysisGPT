@@ -15,9 +15,9 @@ openai.api_key = os.getenv("OPENAI_KEY")
 
 def get_data_description(df):
     # Create a prompt for the GPT system
-    prompt = """You are AnalysisGPT, a large language model trained by OpenAI. Your mission is to describe a csv file as a data analyst would. 
+    prompt = """You are AnalysisGPT, a large language model trained by OpenAI. Your mission is to describe a csv file as a data analyst would.
 You will not receive the full CSV file. You will only receive a sample of 20 rows. But you will receive the number of rows and columns after the sample.
-Don't mention you are analyzing a sample, nor talk anything about the number of rows or columns. 
+Don't mention you are analyzing a sample, nor talk anything about the number of rows or columns.
 
 You can generalize the data and do your comments as if you were analyzing the full dataset.
 
@@ -26,7 +26,7 @@ Your only task is to describe the data. You must awnser the following questions:
 - Can you summarize the data in the CSV file in natural language? For example, can you describe the dataset and its contents in a few sentences?
 - Can you talk what you think about this dataset? what it is for, and what conclusions you can make?
 
-Also, as you're a data analyst, talk about relevant interpretation you found regarding the data. For example, you can talk about the distribution of the data, the correlation between variables, etc. 
+Also, as you're a data analyst, talk about relevant interpretation you found regarding the data. For example, you can talk about the distribution of the data, the correlation between variables, etc.
 """
 
     # Get the number of rows and columns in the dataframe
@@ -41,22 +41,30 @@ Also, as you're a data analyst, talk about relevant interpretation you found reg
             {"role": "user", "content": f"{df.to_csv(index=False)}"}
     ]
 
-    # print("Sending request to OpenAI API...")
-    # response = openai.ChatCompletion.create(
-    #     model="gpt-3.5-turbo",
-    #     messages=messages
-    # )
-    # print("Respose received!")
+    print("Sending request to OpenAI API...")
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=messages
+        )
+    except Exception as e:
+        print("Error while sending request to OpenAI API")
+        print(e)
+        return {
+            "messages": "Error while sending request to OpenAI API",
+            "description": e
+        }
+    print("Respose received!")
 
-    # # Extract the response from the API
-    # description = response.choices[0].message.content.strip()
-    # # Add the number of rows and columns to the description
-    # # description += f"\n\nThe CSV file has {num_rows} rows and {num_cols} columns."
-    description = '''This CSV file contains data of 50,000 job applicants' details. The column names are First Name, Last Name, Email, Application Date, Country, YOE (Years of Experience), Seniority, Technology, Code Challenge Score, and Technical Interview Score. The data seems to be related to job applications, including the candidate's personal information, professional background, and performance scores in code challenges and technical interviews.
+    # Extract the response from the API
+    description = response.choices[0].message.content.strip()
 
-Based on the given data, one could infer that this dataset is of candidate profiles who applied for a job at a company. The company may have screened candidates based on their application date, YOE, seniority in their field, preferred technology, and code challenge and technical interview scores. From this data, the company can analyze the candidates in the order of their preference and select the best candidate for the job role. It could also be used to study hiring patterns across various countries.
+    
+#     description = '''This CSV file contains data of 50,000 job applicants' details. The column names are First Name, Last Name, Email, Application Date, Country, YOE (Years of Experience), Seniority, Technology, Code Challenge Score, and Technical Interview Score. The data seems to be related to job applications, including the candidate's personal information, professional background, and performance scores in code challenges and technical interviews.
 
-Distribution graphs and statistical tests can be performed on the given dataset to understand the frequency of candidates for each technology, seniority and country-wise. Interrelationships between variables can also be studied to determine which factors are most likely to influence candidate selection, such as preferred technology, seniority, or country.'''
+# Based on the given data, one could infer that this dataset is of candidate profiles who applied for a job at a company. The company may have screened candidates based on their application date, YOE, seniority in their field, preferred technology, and code challenge and technical interview scores. From this data, the company can analyze the candidates in the order of their preference and select the best candidate for the job role. It could also be used to study hiring patterns across various countries.
+
+# Distribution graphs and statistical tests can be performed on the given dataset to understand the frequency of candidates for each technology, seniority and country-wise. Interrelationships between variables can also be studied to determine which factors are most likely to influence candidate selection, such as preferred technology, seniority, or country.'''
 
     # Return results, a dictionary with the messages and the description
     results = {
@@ -71,7 +79,7 @@ def get_additional_results(initial_results, df):
 
     prompt = """You are AnalysisGPT, a large language model trained by OpenAI. Your mission is to behave like a genius Senior Data Analyst, and generate a json string that will contain 3 keys named cell1, cell2 and cell3
 This json will be created based on a previous data analysis of a csv file. The data analysis will be done by the same model that is generating this json.
-You will receive a sample of 20 rows of the csv file and a description of the csv, in natural language. 
+You will receive a sample of 20 rows of the csv file and a description of the csv, in natural language.
 
 The json will be structured as follows:
 
@@ -88,16 +96,16 @@ The json will be structured as follows:
         "comment": "see content of section 1",
         "graph_code": "see content of section 2"
     }
-} 
+}
 
-Section 1: 
-    Here you can introduce the reason why you want to generate this graph, and what you want to show with it. 
-    Be talkative, explain your thought. The reason for choosing the graph is more important than the description of it. 
+Section 1:
+    Here you can introduce the reason why you want to generate this graph, and what you want to show with it.
+    Be talkative, explain your thought. The reason for choosing the graph is more important than the description of it.
     Remember, as a Data Analyst, you are constructing a narrative. You are telling a story with the data.
-Section 2: 
+Section 2:
     This is a python code for generating the image. You can generate it using matplotlib or seaborn. Just import it.
-    Make it look nice! 
-    In the end, you will save the plot as a image in the directory static/graph{i}.png. 
+    Make it look nice!
+    In the end, you will save the plot as a image in the directory static/graph{i}.png.
     Always save with bbox_inches = 'tight'. If you use rotation 45, use rotation = 45, ha = 'right'.
     YOU MUST CREATE ONLY 3 GRAPHS, ONE FOR EACH CELL."
 
@@ -155,7 +163,7 @@ ATTENTION: YOUR REPLIES MUST BE IN JSON FORMAT. NO INTRODUCTION TEXTS, NO COMMEN
                 messages=messages,
                 temperature=0.1
             )
-        
+
             # Extract the response from the API
             json_string = response.choices[0].message.content.strip()
             json_dict = json.loads(json_string)
@@ -178,17 +186,17 @@ ATTENTION: YOUR REPLIES MUST BE IN JSON FORMAT. NO INTRODUCTION TEXTS, NO COMMEN
                 e = str(e)
                 print(f"Error: {e}")
                 error_message.append([f"cell{i}", f"Error: {e}"])
-    
+
             # if there is an error, send the error message back to ChatGPT
             if error_message:
                 messages.append({"role": "assistant", "content": json_string})
-            
+
                 error_message_content = "here is a list of errors:\n"
                 for error in error_message:
                     error_message_content += f"{error[0]}: {error[1]}\n"
-                error_message_content += "Please fix the errors and send the json again."    
-            
-                messages.append({"role": "user", "content": error_message})
+                error_message_content += "Please fix the errors and send the json again."
+
+                messages.append({"role": "user", "content": str(error_message)})
                 print("There was an error, sending the error message back to ChatGPT...")
                 print(messages[-1])
 
@@ -244,6 +252,9 @@ def get_delimiter(file):
 # Define the route for uploading a CSV file
 @app.route('/upload', methods=['POST'])
 def upload():
+    # Get OpenAI API key
+    openai.api_key = request.form['openai-api-key']
+
     # Get the uploaded file
     file = request.files['file']
 
@@ -265,7 +276,7 @@ def upload():
     # Process the data to create a description of the data using chatGPT
     results = get_data_description(df)
 
-    
+
     # Return to the main page with the results
     return render_template('index.html', results=results)
 
@@ -278,7 +289,7 @@ def additional_results():
     df = pd.read_parquet("data/data.parquet")
     print("Generating additional results...")
     additional_results = get_additional_results(results_json, df)
- 
+
     print("Additional results generated!")
 
     # Generate URLs for the graph images
