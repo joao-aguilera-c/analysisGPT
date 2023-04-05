@@ -81,6 +81,24 @@
             font-size: 16px;
             margin-top: 0;
             margin-bottom: 0;
+            margin: 0;
+            padding: 0;
+        }.code-box {
+            background-color: #212121; /* set the background color to a dark gray */
+            color: #fff; /* set the text color to white */
+            padding: 10px; /* add some padding */
+            margin-bottom: 20px; /* add some margin to separate this section from others */
+            border-radius: 5px; /* add some border radius to round the corners */
+        }.image-box {
+            text-align: center;
+            max-width: 100%;
+            overflow: hidden;
+            margin: 10px 0;
+        }.hr {
+            height: 1px;
+            border: 0;
+            background-color: #dddddd;
+            margin: 40px 0;
         }
     </style>
 </head>
@@ -103,7 +121,7 @@
                 <h2>Analysis Results</h2>
                 <pre id="analysis">
                     {% if results %}
-                    <p>{{ results.description }}</p>
+{{ results.description }}
                     {% endif %}
                 </pre>
             </section>
@@ -135,7 +153,26 @@
                     contentType: 'application/json;charset=UTF-8',
                     data: JSON.stringify(resultsJson),
                     success: function(data) {
-                        $('#analysis').append('<p>' + data + '</p>');
+                        for (var i = 1; i <= 3; i++) {
+                            var cell = data['cell' + i];
+                            var comment = cell.comment;
+                            var graphCode = cell.graph_code;
+                            var graphUrl = cell.graph_url;
+                            var cardHtml = '<div class="card">' +
+                                                '<div class="card-body">' +
+                                                    '<hr>' +
+                                                    '<p> </p>' +
+                                                    '<p class="card-text">' + comment + '</p>' +
+                                                    '<div class="code-box">' +
+                                                        '<pre><code>' + graphCode + '</code></pre>' +
+                                                    '</div>' +
+                                                    '<div class="image-box">' +
+                                                        '<img src="' + graphUrl + '" alt="Graph ' + i + '" class="img-fluid mx-auto d-block" style="max-width: 100%;">' +
+                                                    '</div>' +
+                                                '</div>' +
+                                            '</div>';
+                            $('#analysis').append(cardHtml);
+                        }
                     },
                     error: function(xhr, status, error) {
                         console.log(xhr.responseText);
