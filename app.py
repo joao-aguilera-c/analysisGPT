@@ -83,15 +83,18 @@ The json will be structured as follows:
 {
     "cell1": {
         "comment": "see content of section 1",
-        "graph_code": "see content of section 2"
+        "graph_code": "see content of section 2",
+        "graph_to_text_code": "see content of section 3"
     },
     "cell2": {
         "comment": "see content of section 1",
-        "graph_code": "see content of section 2"
+        "graph_code": "see content of section 2",
+        "graph_to_text_code": "see content of section 3"
     },
     "cell3": {
         "comment": "see content of section 1",
-        "graph_code": "see content of section 2"
+        "graph_code": "see content of section 2",
+        "graph_to_text_code": "see content of section 3"
     }
 }
 
@@ -105,7 +108,12 @@ Section 2:
     In the end, you will save the plot as a image in the directory static/graph{i}.png.
     Always save with bbox_inches = 'tight'. If you use rotation 45, use rotation = 45, ha = 'right'.
     YOU MUST CREATE ONLY 3 GRAPHS, ONE FOR EACH CELL."
-
+Section 3:
+    This is a python code for generating tables that will have the same information as the graphs. These tables is to give you more information about the graphs.
+    With them, you will have a better understanding of the data in the graphs.
+    In another moment, you will receive the outputs of this code, and you will use it to write a conclusion about the graphs you generated.
+    - Do not print the tables, save csv files in the directory data/graph_to_text{i}.csv
+    - You can only generate one csv file for each graph. Choose the csv wisely as it will be your only source of information to write the conclusion.
 
 Also you will receive some additional information about the csv file, such as the number of unique values for each column. Use this data to generate readable graphs.
 
@@ -201,6 +209,69 @@ ATTENTION: YOUR REPLIES MUST BE IN JSON FORMAT. NO INTRODUCTION TEXTS, NO COMMEN
     return json_dict
 
 
+def get_conclusion(results_json, df):
+    # Initialize an empty dictionary to store the conclusions
+    conclusions = {}
+
+    # Initialize an empty string to store the user prompt
+    user_prompt = ""
+
+    # Iterate through the cells in the results_json
+    for cell_key, cell_value in results_json.items():
+        # Get the graph_to_text_code for the current cell
+        graph_to_text_code = cell_value["graph_to_text_code"]
+
+        # Run the graph_to_text_code
+        try:
+            print(f"Running {cell_key} graph_to_text_code:")
+            print(graph_to_text_code)
+            exec(graph_to_text_code)
+        except Exception as e:
+            print(f"Error in {cell_key} graph_to_text_code: {e}")
+            conclusions[cell_key] = f"Error in {cell_key} graph_to_text_code: {e}"
+            continue
+
+        # Read the generated CSV file
+        csv_path = f"data/graph_to_text{cell_key[-1]}.csv"
+        try:
+            graph_to_text_df = pd.read_csv(csv_path)
+        except Exception as e:
+            print(f"Error reading {csv_path}: {e}")
+            conclusions[cell_key] = f"Error reading {csv_path}: {e}"
+            continue
+
+        # Append the CSV content to the user prompt
+        user_prompt += f"\n\n{cell_key}:\n{graph_to_text_df.to_csv(index=False)}"
+
+    # Create a prompt for the GPT system
+    prompt = f"""You are AnalysisGPT, a large language model trained by OpenAI. Your mission is to analyze the data in the following CSV files and provide a conclusion based on the data.
+
+{user_prompt}
+
+Please provide a conclusion in natural language, discussing the insights and patterns you observe in the data."""
+
+    messages = [
+        {"role": "system", "content": prompt}
+    ]
+
+    # Send the request to the OpenAI API
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=messages
+        )
+    except Exception as e:
+        print(f"Error while sending request to OpenAI API: {e}")
+        return {"error": f"Error while sending request to OpenAI API: {e}"}
+
+    # Extract the response from the API
+    conclusion = response.choices[0].message.content.strip()
+
+    # Store the conclusion in the conclusions dictionary
+    conclusions["conclusion"] = conclusion
+
+    return conclusions
+
 # Define the home page route
 @app.route('/')
 def home():
@@ -294,6 +365,18 @@ def additional_results():
         additional_results[cell]['graph_url'] = f"/static/graph{i+1}.png"
 
     return jsonify(additional_results)
+
+@app.route('/conclusion', methods=['POST'])
+def conclusion():
+    results_json = request.get_json()
+
+    df = pd.read_parquet("data/data.parquet")
+    print("Generating conclusion...")
+    conclusion = get_conclusion(results_json, df)
+
+    print("Conclusion generated!")
+
+    return jsonify(conclusion)
 
 
 if __name__ == '__main__':
