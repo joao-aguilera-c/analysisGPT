@@ -9,7 +9,7 @@ import tiktoken
 from app_config import Config
 import logging
 
-logging.basicConfig(format='%(asctime)s %(filename)s:%(lineno)d %(message)s', level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s %(filename)s:%(lineno)d %(message)s', level=logging.INFO)
 
 
 def num_tokens_from_string(string: str, encoding_name: str) -> int:
@@ -19,33 +19,67 @@ def num_tokens_from_string(string: str, encoding_name: str) -> int:
     return num_tokens
 
 
+def get_data_profile(df):
+    # Create a profile report of the data
+    from ydata_profiling import ProfileReport
+    import itertools
+
+    profile = ProfileReport(df, title="Profiling Report")
+    # As a JSON string
+    profile = profile.to_json()
+    profile = json.loads(profile)
+    keys = ['table', 'variables', 'alerts']
+    profile = {key: profile[key] for key in keys}
+    # rename 'variables' key to 'columns'
+    profile['columns'] = profile.pop('variables')
+    # on profile['columns']['value_counts_without_nan'] keep the first 10 values of each column
+    columns_pop_keys = [
+        'hashable', 'value_counts_without_nan', 'value_counts_index_sorted',
+        'ordering', 'n', 'count', 'memory_size', 'imbalance',
+        'first_rows', 'chi_squared', 'max_length', 'mean_length',
+        'median_length', 'min_length', 'length_histogram', 'histogram_length',
+        'n_characters_distinct', 'n_characters', 'character_counts', 
+        'category_alias_values', 'block_alias_values', 'block_alias_counts',
+        'n_block_alias', 'block_alias_char_counts', 'script_counts', 
+        'n_scripts', 'script_char_counts', 'category_alias_counts',
+        'n_category', 'category_alias_char_counts', 'word_counts',
+        'n_negative', 'p_negative', 'n_infinite', 'n_zeros', 
+        'std', 'variance', 'kurtosis', 'skewness', 'sum', 'mad',
+        'chi_squared', 'range', 'iqr', 'cv', 'p_zeros', "p_infinite",
+        'monotonic_increase', 'monotonic_decrease', 'monotonic_increase_strict',
+        'monotonic_decrease_strict', 'monotonic', 'histogram'
+    ]
+
+    for column in profile['columns']:
+        profile['columns'][column]['top3_value_counts_without_nan'] = dict(itertools.islice(profile['columns'][column]['value_counts_without_nan'].items(), 3))
+        
+        for key in columns_pop_keys:
+            profile['columns'][column].pop(key, None)
+
+    return profile
+
+
 def get_data_description(df):
     # Create a prompt for the GPT system
     prompt = """You are AnalysisGPT, a large language model trained by OpenAI. Your mission is to describe a csv file as a data analyst would.
-You will not receive the full CSV file. You will only receive a sample of 20 rows. But you will receive the number of rows and columns after the sample.
-Don't mention you are analyzing a sample, nor talk anything about the number of rows or columns.
+You will not receive CSV file, but a profile report of the data. You must use the information in the profile report to describe the data.
+Don't mention you are analyzing a profile tho. Just talk about the data.
 
-You can generalize the data and do your comments as if you were analyzing the full dataset.
-
-Respond using HTML. You can use <h3> to <h6> for headers, <p> for paragraphs, <ul> and <li> for lists, <b> for bold, <i> for italics.
+Respond using HTML. You can use <h3> to <h6> for headers.
 
 Your only task is to describe the data. You must awnser the following questions:
-- Can you summarize the data in the CSV file in natural language? For example, can you describe the dataset and its contents in a few sentences?
-- Can you talk what you think about this dataset? what it is for, and what conclusions you can make?
+- What is the Summary of the data?
+- Can you give a brief description of the data?
 
 Your initial description will be later used by the model, to generate a json with graphs and tables.
 """
 
-    # Get the number of rows and columns in the dataframe
-    num_rows, num_cols = df.shape
-
-
-    # get aleatory sample of 20 rows
-    df = df.sample(20)
+    # Get data profile
+    profile = get_data_profile(df)
 
     messages = [
-            {"role": "system", "content": f"{prompt}\n\nShape of the data: {num_rows} rows and {num_cols} columns"},
-            {"role": "user", "content": f"{df.to_csv(index=False)}"}
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": json.dumps(profile)}
     ]
 
     logging.info("Sending request to OpenAI API...")
@@ -82,24 +116,24 @@ Your initial description will be later used by the model, to generate a json wit
 def get_additional_results(initial_results, df):
     """This funtion will return a json containing strings and gaph images, to be displayed in the page"""
 
-    prompt = """You are AnalysisGPT, a large language model trained by OpenAI. Your mission is to behave like a genius Senior Data Analyst, and generate a json string that will contain 3 keys named cell1, cell2 and cell3
+    prompt = """You are AnalysisGPT, a large language model trained by OpenAI. Your mission is to behave like a genius Senior Data Analyst, and generate a json string that will contain 3 keys named graph1, graph2 and graph3
 This json will be created based on a previous data analysis of a csv file. The data analysis will be done by the same model that is generating this json.
 You will receive a sample of 20 rows of the csv file and a description of the csv, in natural language.
 
 The json will be structured as follows:
 
 {
-    "cell1": {
+    "graph1": {
         "comment": "A comment, described in section 1",
         "graph_code": "Python code, explained in section 2",
         "graph_to_text_code": "Python code, explained in section 3"
     },
-    "cell2": {
+    "graph2": {
         "comment": "A comment, described in section 1",
         "graph_code": "Python code, explained in section 2",
         "graph_to_text_code": "Python code, explained in section 3"
     },
-    "cell3": {
+    "graph3": {
         "comment": "A comment, described in section 1",
         "graph_code": "Python code, explained in section 2",
         "graph_to_text_code": "Python code, explained in section 3"
@@ -115,7 +149,7 @@ Section 1:
 Section 2:
     This is a python code for generating the image. You can generate it using matplotlib or seaborn. Just import it.
     Make it look nice!
-    In the end, you will save the plot as a image in the directory static/graph{i}.png, where i is the number of the cell.
+    In the end, you will save the plot as a image in the directory static/graph{i}.png, where i is the number of the graph.
     Always save with bbox_inches = 'tight'. Dont use rotation 45, use rotation = 90, ha = 'right'.
     YOU MUST CREATE ONLY 3 GRAPHS, ONE FOR EACH CELL."
 
@@ -124,7 +158,7 @@ Section 3:
     With them, you will have a better understanding of the data in the graphs.
     In another moment, you will receive the outputs of this code, and you will use it to write a conclusion about the graphs you generated.
     - NEVER save a csv containing whole colums. The goal of this csv is to give you more information about the graph, not to give you the whole data.
-    - Do not print the tables, save them as csv files in the directory data/graph_to_text{i}.csv, where i is the number of the cell. Use pd.to_csv().
+    - Do not print the tables, save them as csv files in the directory data/graph_to_text{i}.csv, where i is the number of the graph. Use pd.to_csv().
     - When genarating the csv, use index = False
     - You can only generate one csv file for each graph. Choose the csv wisely as it will be your only source of information to write the conclusion.
 
@@ -191,7 +225,7 @@ ATTENTION: YOUR REPLIES MUST BE IN JSON FORMAT. NO INTRODUCTION TEXTS, NO COMMEN
         error_list = []
         for i in range(1,4):
             # get the graph code
-            graph_code = json_dict[f"cell{i}"]["graph_code"]
+            graph_code = json_dict[f"graph{i}"]["graph_code"]
             # run the code
             logging.info("Running the graph code:")
             logging.info(graph_code)
@@ -206,7 +240,7 @@ ATTENTION: YOUR REPLIES MUST BE IN JSON FORMAT. NO INTRODUCTION TEXTS, NO COMMEN
                 e = str(e)
                 logging.info(f"Error: {e}")
                 traceback.print_exc()
-                error_list.append([f"cell{i}", f"Error: {e}"])
+                error_list.append([f"graph{i}", f"Error: {e}"])
 
             # if there is an error, send the error message back to ChatGPT
             if error_list:
@@ -215,7 +249,7 @@ ATTENTION: YOUR REPLIES MUST BE IN JSON FORMAT. NO INTRODUCTION TEXTS, NO COMMEN
                 error_list_content = "here is a list of errors:\n"
                 for error in error_list:
                     error_list_content += f"{error[0]}: {error[1]}\n"
-                error_list_content += "Please fix the errors and send the whole json(with the 3 cells) again."
+                error_list_content += "Please fix the errors and send the whole json(with the 3 graphs) again."
 
                 messages.append({"role": "user", "content": str(error_list)})
                 logging.info("There was an error, sending the error message back to ChatGPT...")
@@ -235,36 +269,36 @@ def get_conclusion(analysis_report, df):
 
     messages[0] = {"role": "system", "content": "You, as AnalysisGPT, have to describe a CSV file like a data analyst, but you will only receive a sample of 20 rows, even though you'll know the shape of the full dataset. You can't mention that you're analyzing a sample. You must summarize the data in the CSV file in natural language and talk about what you think about the dataset, what it is for, and so on. You must use HTML (starting in <h3>) to format your response, and your initial description will be used to generate a JSON with graphs and tables."}
     messages.append({"role": "assistant", "content": analysis_report["description"]})
-    messages.append({"role": "user", "content": "Now genarate a JSON containing 3 cells, each one with a graph_code, that will generate a graph image based on the df. Also a graph_to_text_code that will generate csvs with the same information as the graphs. The csvs will be used by you to generate conclusions regarding the whole dataset."})
+    messages.append({"role": "user", "content": "Now genarate a JSON containing 3 graphs, each one with a graph_code, that will generate a graph image based on the df. Also a graph_to_text_code that will generate csvs with the same information as the graphs. The csvs will be used by you to generate conclusions regarding the whole dataset."})
     messages.append({"role": "assistant", "content": str(analysis_report["analysis"])})
-    # Iterate through the cells in the analysis_report
-    for cell_key, cell_value in analysis_report["analysis"].items():
-        # Get the graph_to_text_code for the current cell
-        graph_to_text_code = cell_value["graph_to_text_code"]
+    # Iterate through the graphs in the analysis_report
+    for graph_key, graph_value in analysis_report["analysis"].items():
+        # Get the graph_to_text_code for the current graph
+        graph_to_text_code = graph_value["graph_to_text_code"]
 
         # Run the graph_to_text_code
         try:
-            logging.info(f"Running {cell_key} graph_to_text_code:")
+            logging.info(f"Running {graph_key} graph_to_text_code:")
             logging.info(graph_to_text_code)
             exec(graph_to_text_code)
         except Exception as e:
-            logging.info(f"Error in {cell_key} graph_to_text_code: {e}")
+            logging.info(f"Error in {graph_key} graph_to_text_code: {e}")
             traceback.print_exc()
-            conclusions[cell_key] = f"Error in {cell_key} graph_to_text_code: {e}"
+            conclusions[graph_key] = f"Error in {graph_key} graph_to_text_code: {e}"
             continue
 
         # Read the generated CSV file
-        csv_path = f"data/graph_to_text{cell_key[-1]}.csv"
+        csv_path = f"data/graph_to_text{graph_key[-1]}.csv"
         try:
             graph_to_text_df = pd.read_csv(csv_path)
         except Exception as e:
             logging.info(f"Error reading {csv_path}: {e}")
             traceback.print_exc()
-            conclusions[cell_key] = f"Error reading {csv_path}: {e}"
+            conclusions[graph_key] = f"Error reading {csv_path}: {e}"
             continue
 
         # Append the CSV content to the user prompt
-        user_prompt += f"\n\n{cell_key}:\n{graph_to_text_df.to_csv(index=False)}"
+        user_prompt += f"\n\n{graph_key}:\n{graph_to_text_df.to_csv(index=False)}"
 
     # Create a prompt for the GPT system
     prompt = f"""You're still AnalysisGPT. Your mission now is to analyze the data generated by graph_to_text_code provide a conclusion based on the data.
@@ -278,9 +312,10 @@ If you want to format the text for better readability, you can use html tags."""
 
     # Send the request to the OpenAI API
     logging.info("Sending request to OpenAI API...")
-    logging.info("Number of tokens in prompt:", num_tokens_from_string(prompt, "gpt-3.5-turbo"))
+    tokens = num_tokens_from_string(prompt, "gpt-3.5-turbo")
+    logging.info(f"Number of tokens in prompt: {tokens}")
     try:
-        response = openai.ChatCompletion.create(
+        response = call_gpt(
             model=Config.get('MODEL').get('CONCLUSION'),
             messages=messages
         )

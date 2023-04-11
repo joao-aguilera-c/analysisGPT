@@ -5,7 +5,7 @@ Config =  {
         'CONCLUSION': "gpt-3.5-turbo"
     },
     'BYPASS_MODEL': {
-        'INTRO': True,
+        'INTRO': False,
         'ANALYSIS': False,
         'CONCLUSION': False
     }

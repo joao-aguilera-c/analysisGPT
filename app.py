@@ -17,7 +17,7 @@ from utils import (
 from app_config import Config
 
 # configure logging format to have: time, file, line, message
-logging.basicConfig(format='%(asctime)s %(filename)s:%(lineno)d %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s [%(asctime)s] %(filename)s:%(lineno)d %(message)s', level=logging.INFO)
 
 app = Flask(__name__)
 
@@ -126,4 +126,4 @@ if __name__ == '__main__':
     if not os.path.exists('debug'):
         os.makedirs('debug')
 
-    app.run(debug=True)
+    app.run(debug=False)
