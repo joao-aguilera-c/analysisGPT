@@ -12,10 +12,18 @@ import tiktoken
 
 app = Flask(__name__)
 
-MODEL_NAME = "gpt-3.5-turbo"
-DEBUG_INTRO = True
-DEBUG_ANALYSIS = True
-DEBUG_CONCLUSION = True
+MODEL = {
+    'INTRO': "gpt-3.5-turbo",
+    'ANALYSIS': "gpt-4",
+    'CONCLUSION': "gpt-3.5-turbo"
+}
+
+DEBUG = {
+    'INTRO': True,
+    'ANALYSIS': False,
+    'CONCLUSION': False
+}
+
 def get_data_description(df):
     # Create a prompt for the GPT system
     prompt = """You are AnalysisGPT, a large language model trained by OpenAI. Your mission is to describe a csv file as a data analyst would.
@@ -48,7 +56,7 @@ Your initial description will be later used by the model, to generate a json wit
     print("Sending request to OpenAI API...")
     try:
         response = openai.ChatCompletion.create(
-            model=MODEL_NAME,
+            model=MODEL['INTRO'],
             messages=messages
         )
     except Exception as e:
@@ -90,31 +98,32 @@ The json will be structured as follows:
 
 {
     "cell1": {
-        "comment": "Follow rules defined in section 1",
-        "graph_code": "Follow rules defined in section 2",
-        "graph_to_text_code": "Follow rules defined in section 3"
+        "comment": "A comment, described in section 1",
+        "graph_code": "Python code, explained in section 2",
+        "graph_to_text_code": "Python code, explained in section 3"
     },
     "cell2": {
-        "comment": "Follow rules defined in section 1",
-        "graph_code": "Follow rules defined in section 2",
-        "graph_to_text_code": "Follow rules defined in section 3"
+        "comment": "A comment, described in section 1",
+        "graph_code": "Python code, explained in section 2",
+        "graph_to_text_code": "Python code, explained in section 3"
     },
     "cell3": {
-        "comment": "Follow rules defined in section 1",
-        "graph_code": "Follow rules defined in section 2",
-        "graph_to_text_code": "Follow rules defined in section 3"
+        "comment": "A comment, described in section 1",
+        "graph_code": "Python code, explained in section 2",
+        "graph_to_text_code": "Python code, explained in section 3"
     }
 }
 
 Section 1:
     Here you can introduce the reason why you want to generate this graph, and what you want to show with it.
     Be talkative, explain your thought. The reason for choosing the graph is more important than the description of it.
+    DON'T PREDICT WHAT THE GRAPH WILL SHOW.
     Remember, as a Data Analyst, you are constructing a narrative. You are telling a story with the data.
 
 Section 2:
     This is a python code for generating the image. You can generate it using matplotlib or seaborn. Just import it.
     Make it look nice!
-    In the end, you will save the plot as a image in the directory static/graph{i}.png, i is the number of the cell.
+    In the end, you will save the plot as a image in the directory static/graph{i}.png, where i is the number of the cell.
     Always save with bbox_inches = 'tight'. Dont use rotation 45, use rotation = 90, ha = 'right'.
     YOU MUST CREATE ONLY 3 GRAPHS, ONE FOR EACH CELL."
 
@@ -122,10 +131,11 @@ Section 3:
     This is a python code for generating tables that will have the same information as the graphs. These tables is to give you more information about the graphs.
     With them, you will have a better understanding of the data in the graphs.
     In another moment, you will receive the outputs of this code, and you will use it to write a conclusion about the graphs you generated.
-    - Do not print the tables, save csv files in the directory data/graph_to_text{i}.csv, i is the number of the cell.
+    - NEVER save a csv containing whole colums. The goal of this csv is to give you more information about the graph, not to give you the whole data.
+    - Do not print the tables, save them as csv files in the directory data/graph_to_text{i}.csv, where i is the number of the cell. Use pd.to_csv().
     - When genarating the csv, use index = False
     - You can only generate one csv file for each graph. Choose the csv wisely as it will be your only source of information to write the conclusion.
-    - NEVER save a csv containing a whole colum. The goal of this csv is to give you more information about the graph, not to give you the whole data.
+
 
 Also you will receive some additional information about the csv file, such as the number of unique values for each column. Use this data to generate readable graphs. I.e. if a column has more than 10 unique values, you should not generate a barplot, but a histogram. Also, if a column has more than 10 unique values, you should not put this column in the any axis, as it will be unreadable.
 
@@ -156,7 +166,7 @@ ATTENTION: YOUR REPLIES MUST BE IN JSON FORMAT. NO INTRODUCTION TEXTS, NO COMMEN
     while error_message:
         print("Sending request to OpenAI API...")
         response = openai.ChatCompletion.create(
-            model=MODEL_NAME,
+            model=MODEL['ANALYSIS'],
             messages=messages,
             presence_penalty=2
         )
@@ -172,12 +182,12 @@ ATTENTION: YOUR REPLIES MUST BE IN JSON FORMAT. NO INTRODUCTION TEXTS, NO COMMEN
             # If there is an error, send the error message back to ChatGPT
             print("Error: ", e, " in the following json string:", json_string)
             messages.append({"role": "assistant", "content": json_string})
-            messages.append({"role": "user", "content": str(e)})
+            messages.append({"role": "user", "content": str(e) + "Fix the error and return ONLY the json string."})
 
             print("Sending request to OpenAI API...")
             print(messages)
             response = openai.ChatCompletion.create(
-                model=MODEL_NAME,
+                model=MODEL['ANALYSIS'],
                 messages=messages,
                 temperature=0.1
             )
@@ -238,9 +248,9 @@ def get_conclusion(analysis_report, df):
     user_prompt = ""
     messages = analysis_report["messages"]
 
-
+    messages[0] = {"role": "system", "content": "You, as AnalysisGPT, have to describe a CSV file like a data analyst, but you will only receive a sample of 20 rows, even though you'll know the shape of the full dataset. You can't mention that you're analyzing a sample. You must summarize the data in the CSV file in natural language and talk about what you think about the dataset, what it is for, and so on. You must use HTML (starting in <h3>) to format your response, and your initial description will be used to generate a JSON with graphs and tables."}
     messages.append({"role": "assistant", "content": analysis_report["description"]})
-    messages.append({"role": "user", "content": "Now genarate a JSON containing 3 cells, each one with a graph_code, that will generate a graph image based on the df. Also a graph_to_text_code that will generate csvs with the same information as the graphs. The csvs will be used by you to generate the conclusions."})
+    messages.append({"role": "user", "content": "Now genarate a JSON containing 3 cells, each one with a graph_code, that will generate a graph image based on the df. Also a graph_to_text_code that will generate csvs with the same information as the graphs. The csvs will be used by you to generate conclusions regarding the whole dataset."})
     messages.append({"role": "assistant", "content": str(analysis_report["analysis"])})
     # Iterate through the cells in the analysis_report
     for cell_key, cell_value in analysis_report["analysis"].items():
@@ -276,17 +286,17 @@ def get_conclusion(analysis_report, df):
 
 {user_prompt}
 
-Please provide a conclusion in natural language, discussing the insights and patterns you observe in the data.
+Please provide a conclusion in natural language, discussing the insights and patterns you observe in the data. DO NOT CREATE A CONCLUSION FOR EACH CELL, but rather a conclusion for the whole dataset.
 If you want to format the text for better readability, you can use html tags."""
 
     messages.append({"role": "user", "content": prompt})
 
     # Send the request to the OpenAI API
     print("Sending request to OpenAI API...")
-    print("Number of tokens in prompt:", num_tokens_from_string(prompt, "gpt-4"))
+    print("Number of tokens in prompt:", num_tokens_from_string(prompt, "gpt-3.5-turbo"))
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model=MODEL['CONCLUSION'],
             messages=messages
         )
     except Exception as e:
@@ -366,7 +376,7 @@ def upload():
 
     # sleep(3)
     # Process the data to create a description of the data using chatGPT
-    if DEBUG_INTRO:
+    if DEBUG['INTRO']:
         sleep(3)
         # read 'debug/results.json' file
         with open('debug/results.json', 'r') as f:
@@ -394,7 +404,7 @@ def additional_results():
 
     df = pd.read_parquet("data/data.parquet")
     print("Generating additional results...")
-    if DEBUG_ANALYSIS:
+    if DEBUG['ANALYSIS']:
         # read 'debug/additional_results.json' file
         sleep(5)
         with open('debug/additional_results.json', 'r') as f:
@@ -417,7 +427,7 @@ def conclusion():
 
     df = pd.read_parquet("data/data.parquet")
     print("Generating conclusion...")
-    if DEBUG_CONCLUSION:
+    if DEBUG['CONCLUSION']:
         # read 'debug/conclusion.json' file
         with open('debug/conclusion.json', 'r') as f:
             conclusion = json.load(f)
@@ -438,5 +448,8 @@ if __name__ == '__main__':
         os.makedirs('data')
     if not os.path.exists('static'):
         os.makedirs('static')
+    if not os.path.exists('debug'):
+        os.makedirs('debug')
+
 
     app.run(debug=True)
