@@ -25,7 +25,6 @@
         .logo {
             font-size: 32px;
             font-weight: bold;
-            text-transform: uppercase;
             letter-spacing: 1px;
         }
         .upload-form {
@@ -173,38 +172,87 @@
             background-color: #dddddd;
             margin: 40px 0;
         }
+        .loader {
+            width: 60px;
+            /* center it */
+            margin: auto;
+        }
+
+        .loader-wheel {
+            animation: spin 1s infinite linear;
+            border: 2px solid rgba(230, 230, 230, 0.5);
+            border-left: 4px solid #000000;
+            border-radius: 50%;
+            height: 50px;
+            margin-bottom: 10px;
+            width: 50px;
+        }
+
+        .loader-text {
+            color: #000000;
+            font-family: arial, sans-serif;
+        }
+
+        .loader-text:after {
+            content: 'Loading';
+            animation: load 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes load {
+            0% {
+                content: 'Loading';
+            }
+            33% {
+                content: 'Loading.';
+            }
+            67% {
+                content: 'Loading..';
+            }
+            100% {
+                content: 'Loading...';
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header class="header">
-            <div class="logo">Analysis GPT</div>
+            <div class="logo">AnalysisGPT</div>
         </header>
         <main>
             <section class="upload-form">
-                <form method="post" action="/upload" enctype="multipart/form-data">
+                <form method="post" action="javascript:void(0)" enctype="multipart/form-data" id="upload-form">
                     <div class="api-key-container">
                         <input type="password" id="openai-api-key" name="openai-api-key" placeholder="Enter your API Key" />
                     </div>
                     <h2>Upload CSV File</h2>
-                    <div class="inside-upload-form">
+                    <div class="inside-upload-form" enctype="multipart/form-data">
                         <label for="file-input">Choose a file:</label>
                         <div class="file-input-wrapper">
                             <input type="file" name="file" accept=".csv" id="file-input" onchange="document.getElementById('file-name').innerHTML = this.value.split('\\').pop()">
                             <span id="file-name">No file selected</span>
                         </div>
                         <br>
-                        <input type="submit" value="Upload">
+                        <input type="submit" value="Upload" onclick="handleUploadClick(event)">
                     </div>
                 </form>
             </section>
             <section class="analysis">
-                <h2>Analysis Results</h2>
-                <pre id="analysis">
-                    {% if results %}
-{{ results.description }}
-                    {% endif %}
-                </pre>
+                <h2>Report</h2>
+                <pre id="analysis"></pre>
+                <div class="loader" style="display: none;">
+                    <div class="loader-wheel"></div>
+                    <div class="loader-text"></div>
+                </div>
             </section>
         </main>
     </div>
@@ -213,11 +261,25 @@
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelector('.upload-form form').addEventListener('submit', function(event) {
                 event.preventDefault();
-                const apiKey = document.getElementById('openai-api-key').value;
-                document.cookie = `openai-api-key=${apiKey}`;
-                this.submit();
             });
         });
+
+        function handleUploadClick(event) {
+            event.preventDefault();
+            const apiKey = document.getElementById('openai-api-key').value;
+            document.cookie = `openai-api-key=${apiKey}`;
+            uploadFile();
+        }
+        
+        function showLoading() {
+            // Show the loading element
+            document.querySelector('.loader').style.display = 'block';
+        }
+
+        function hideLoading() {
+            // Hide the loading element
+            document.querySelector('.loader').style.display = 'none';
+        }
 
         // Check if the cookie exists
         if (document.cookie.indexOf('openai-api-key=') !== -1) {
@@ -227,55 +289,108 @@
             document.getElementById('openai-api-key').value = cookieValue;
         }
 
-        const analysisIntroduction = document.getElementById("analysis").textContent.trim();
-        if (analysisIntroduction !== "") {
-            const resultsJson = {
-                messages: [
-                    {
-                        role: '{{ results.messages[0].role|safe|tojson }}',
-                        content: '{{ results.messages[0].content|safe|tojson }}'
-                    },
-                    {
-                        role: '{{ results.messages[1].role|safe|tojson }}',
-                        content: '{{ results.messages[1].content|safe|tojson }}'
-                    }
-                ],
-                description: '{{ results.description|safe|tojson }}'
-            
-            };
+        function uploadFile() {
+            const formData = new FormData(document.getElementById('upload-form'));
+            $.ajax({
+                url: '/upload',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                beforeSend: showLoading,
+                success: function(data) {
+                    console.log(data)
+                    const resultsJson = {
+                        messages: [
+                            {
+                                role: data.messages[0].role,
+                                content: data.messages[0].content
+                            },
+                            {
+                                role: data.messages[1].role,
+                                content: data.messages[1].content
+                            }
+                        ],
+                        description: data.description
+                    };
+                    document.getElementById('analysis').innerHTML = data.description;
+                    hideLoading();
+                    document.getElementById('analysis').scrollIntoView(true);
+                    getAdditionalResults(resultsJson);
+                },
+                error: function(xhr, status, error) {
+                    console.log(xhr.responseText);
+                }
+            });
+        }
 
-            $(document).ready(function() {
-                $.ajax({
-                    url: '/additional_results',
-                    type: 'POST',
-                    contentType: 'application/json;charset=UTF-8',
-                    data: JSON.stringify(resultsJson),
-                    success: function(data) {
-                        for (var i = 1; i <= 3; i++) {
-                            var cell = data['cell' + i];
-                            var comment = cell.comment;
-                            var graphCode = cell.graph_code;
-                            var graphUrl = cell.graph_url;
-                            var cardHtml = '<div class="card">' +
-                                                '<div class="card-body">' +
-                                                    '<hr>' +
-                                                    '<p> </p>' +
-                                                    '<p class="card-text">' + comment + '</p>' +
-                                                    '<div class="code-box">' +
-                                                        '<pre><code>' + graphCode + '</code></pre>' +
-                                                    '</div>' +
-                                                    '<div class="image-box">' +
-                                                        '<img src="' + graphUrl + '" alt="Graph ' + i + '" class="img-fluid mx-auto d-block" style="max-width: 100%;">' +
-                                                    '</div>' +
+        function getAdditionalResults(resultsJson) {
+            $.ajax({
+                url: '/additional_results',
+                type: 'POST',
+                contentType: 'application/json;charset=UTF-8',
+                data: JSON.stringify(resultsJson),
+                beforeSend: showLoading,
+                success: function(data) {
+                    console.log(data)
+
+                    for (var i = 1; i <= 3; i++) {
+                        var cell = data['cell' + i];
+                        var comment = cell.comment;
+                        var graphCode = cell.graph_code;
+                        var graphUrl = cell.graph_url;
+                        var cardHtml = '<div class="card">' +
+                                            '<div class="card-body">' +
+                                                '<hr>' +
+                                                '<p> </p>' +
+                                                '<p class="card-text">' + comment + '</p>' +
+                                                '<div class="code-box">' +
+                                                    '<pre><code>' + graphCode + '</code></pre>' +
                                                 '</div>' +
-                                            '</div>';
-                            $('#analysis').append(cardHtml);
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.log(xhr.responseText);
-                    }
-                });
+                                                '<div class="image-box">' +
+                                                    '<img src="' + graphUrl + '" alt="Graph ' + i + '" class="img-fluid mx-auto d-block" style="max-width: 100%;">' +
+                                                '</div>' +
+                                            '</div>' +
+                                        '</div>';
+                        $('#analysis').append(cardHtml);
+                        
+                    };
+                    hideLoading();
+                    getConclusion(resultsJson, data);
+                },
+                error: function(xhr, status, error) {
+                    console.log(xhr.responseText);
+                }
+            });
+        }
+
+        function getConclusion(analysisIntroduction, analysis) {
+            console.log("conclusionReady is true");
+            analysisIntroduction['analysis'] = analysis;
+
+            console.log(analysisIntroduction)
+            $.ajax({
+                url: '/conclusion',
+                type: 'POST',
+                contentType: 'application/json;charset=UTF-8',
+                data: JSON.stringify(analysisIntroduction),
+                beforeSend: showLoading,
+                success: function(data) {
+                    console.log(data);
+                    var conclusion = data.conclusion;
+                    var cardHtml = '<div class="card">' +
+                                        '<div class="card-body">' +
+                                            '<hr>' +
+                                            '<p> </p>' +
+                                            '<p class="card-text" id="conclusion">' + conclusion + '</p>' +
+                                        '</div>' +
+                                    '</div>';
+                    $('#analysis').append(cardHtml);
+                    hideLoading();
+                },
+                error: function(xhr, status, error) {
+                    console.log(xhr.responseText);
+                }
             });
         }
     </script>
