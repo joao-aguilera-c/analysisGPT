@@ -313,7 +313,8 @@
                         ],
                         description: data.description
                     };
-                    document.getElementById('analysis').innerHTML = data.description;
+                    
+                    document.getElementById('analysis').innerHTML = "<hr>" + data.description;
                     hideLoading();
                     document.getElementById('analysis').scrollIntoView(true);
                     getAdditionalResults(resultsJson);
@@ -335,10 +336,10 @@
                     console.log(data)
 
                     for (var i = 1; i <= 3; i++) {
-                        var cell = data['cell' + i];
-                        var comment = cell.comment;
-                        var graphCode = cell.graph_code;
-                        var graphUrl = cell.graph_url;
+                        var graph = data['graph' + i];
+                        var comment = graph.comment;
+                        var graphCode = graph.graph_code;
+                        var graphUrl = graph.graph_url;
                         var cardHtml = '<div class="card">' +
                                             '<div class="card-body">' +
                                                 '<hr>' +
