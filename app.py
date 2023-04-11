@@ -64,9 +64,6 @@ def upload():
         with open('debug/results.json', 'w') as f:
             json.dump(results, f)
 
-
-
-
     # Return to the main page with the results
     return jsonify(results)
 
@@ -95,6 +92,7 @@ def additional_results():
         additional_results[cell]['graph_url'] = f"/static/graph{i+1}.png"
 
     return jsonify(additional_results)
+
 
 @app.route('/conclusion', methods=['POST'])
 def conclusion():
@@ -125,6 +123,5 @@ if __name__ == '__main__':
         os.makedirs('static')
     if not os.path.exists('debug'):
         os.makedirs('debug')
-
 
     app.run(debug=True)
