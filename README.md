@@ -15,6 +15,8 @@ This tool uses a Flask web application to analyze a CSV file with the help of Op
 2.  Enter your OpenAI API key
 3.  View the generated analysis and graphs
 
+![image](https://user-images.githubusercontent.com/68448759/231230182-d9ccc6f2-568a-4d5c-996e-320268508a89.png)
+
 
 ### License
 
