@@ -7,6 +7,7 @@ import os
 import matplotlib
 import seaborn as sns
 import matplotlib.pyplot as plt
+import logging
 
 from utils import (
     get_data_description, get_additional_results, get_conclusion, 
@@ -15,9 +16,10 @@ from utils import (
 
 from app_config import Config
 
-app = Flask(__name__)
-app.config.from_object(Config)
+# configure logging format to have: time, file, line, message
+logging.basicConfig(format='%(asctime)s %(filename)s:%(lineno)d %(message)s', level=logging.INFO)
 
+app = Flask(__name__)
 
 # Define the home page route
 @app.route('/')
@@ -51,13 +53,13 @@ def upload():
 
     # sleep(3)
     # Process the data to create a description of the data using chatGPT
-    if app.config.get('DEBUG').get('INTRO'):
+    if Config.get('BYPASS_MODEL').get('INTRO'):
         sleep(3)
         # read 'debug/results.json' file
         with open('debug/results.json', 'r') as f:
             results = json.load(f)
         
-        print(type(results))
+        logging.info(type(results))
     else: 
         results = get_data_description(df)
         # save results to debugging purposes at debug folder (results is a dictionary)
@@ -75,8 +77,8 @@ def additional_results():
     results_json = request.get_json()
 
     df = pd.read_parquet("data/data.parquet")
-    print("Generating additional results...")
-    if app.config.get('DEBUG').get('ANALYSIS'):
+    logging.info("Generating additional results...")
+    if Config.get('BYPASS_MODEL').get('ANALYSIS'):
         # read 'debug/additional_results.json' file
         sleep(5)
         with open('debug/additional_results.json', 'r') as f:
@@ -85,7 +87,7 @@ def additional_results():
         additional_results = get_additional_results(results_json, df)
         with open('debug/additional_results.json', 'w') as f:
             json.dump(additional_results, f)
-        print("Additional results generated!")
+        logging.info("Additional results generated!")
 
     # Generate URLs for the graph images
     for i, cell in enumerate(additional_results):
@@ -99,8 +101,8 @@ def conclusion():
     results_json = request.get_json()
 
     df = pd.read_parquet("data/data.parquet")
-    print("Generating conclusion...")
-    if app.config.get('DEBUG').get('CONCLUSION'):
+    logging.info("Generating conclusion...")
+    if Config.get('BYPASS_MODEL').get('CONCLUSION'):
         # read 'debug/conclusion.json' file
         with open('debug/conclusion.json', 'r') as f:
             conclusion = json.load(f)
@@ -110,7 +112,7 @@ def conclusion():
         with open('debug/conclusion.json', 'w') as f:
             json.dump({"conclusion":conclusion}, f)
 
-    print("Conclusion generated!")
+    logging.info("Conclusion generated!")
    
     return jsonify(conclusion)
 

@@ -6,6 +6,10 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import traceback
 import tiktoken
+from app_config import Config
+import logging
+
+logging.basicConfig(format='%(asctime)s %(filename)s:%(lineno)d %(message)s', level=logging.DEBUG)
 
 
 def num_tokens_from_string(string: str, encoding_name: str) -> int:
@@ -44,21 +48,18 @@ Your initial description will be later used by the model, to generate a json wit
             {"role": "user", "content": f"{df.to_csv(index=False)}"}
     ]
 
-    print("Sending request to OpenAI API...")
+    logging.info("Sending request to OpenAI API...")
     try:
-        response = openai.ChatCompletion.create(
-            model=app.config.get('MODEL').get('INTRO'),
-            messages=messages
-        )
+        response = call_gpt(messages, Config.get('MODEL').get('INTRO'))
     except Exception as e:
-        print("Error while sending request to OpenAI API")
-        print(e)
+        logging.info("Error while sending request to OpenAI API")
+        logging.info(e)
         traceback.print_exc()
         return {
             "messages": "Error while sending request to OpenAI API",
             "description": e
         }
-    print("Respose received!")
+    logging.info("Respose received!")
 
     # Extract the response from the API
     description = response.choices[0].message.content.strip()
@@ -153,16 +154,15 @@ ATTENTION: YOUR REPLIES MUST BE IN JSON FORMAT. NO INTRODUCTION TEXTS, NO COMMEN
         {"role": "user", "content": user_content}
     ]
 
-    error_message = True
-    while error_message:
-        print("Sending request to OpenAI API...")
-        response = openai.ChatCompletion.create(
-            model=app.config.get('MODEL').get('ANALYSIS'),
-
+    error_list = True
+    while error_list:
+        logging.info("Sending request to OpenAI API...")
+        response = call_gpt(
             messages=messages,
-            presence_penalty=2
+            model=Config.get('MODEL').get('ANALYSIS'),
+            presence_penalty=1.2
         )
-        print("Respose received!")
+        logging.info("Respose received!")
 
         # Extract the response from the API
         json_string = response.choices[0].message.content.strip()
@@ -172,15 +172,15 @@ ATTENTION: YOUR REPLIES MUST BE IN JSON FORMAT. NO INTRODUCTION TEXTS, NO COMMEN
             json_dict = json.loads(json_string)
         except Exception as e:
             # If there is an error, send the error message back to ChatGPT
-            print("Error: ", e, " in the following json string:", json_string)
+            logging.info("Error: ", e, " in the following json string:", json_string)
             messages.append({"role": "assistant", "content": json_string})
             messages.append({"role": "user", "content": str(e) + "Fix the error and return ONLY the json string."})
 
-            print("Sending request to OpenAI API...")
-            print(messages)
-            response = openai.ChatCompletion.create(
-                model=app.config.get('MODEL').get('ANALYSIS'),
+            logging.info("Sending request to OpenAI API...")
+            logging.info(messages)
+            response = call_gpt(
                 messages=messages,
+                model=Config.get('MODEL').get('ANALYSIS'),
                 temperature=0.1
             )
 
@@ -188,13 +188,13 @@ ATTENTION: YOUR REPLIES MUST BE IN JSON FORMAT. NO INTRODUCTION TEXTS, NO COMMEN
             json_string = response.choices[0].message.content.strip()
             json_dict = json.loads(json_string)
 
-        error_message = []
+        error_list = []
         for i in range(1,4):
             # get the graph code
             graph_code = json_dict[f"cell{i}"]["graph_code"]
             # run the code
-            print("Running the graph code:")
-            print(graph_code)
+            logging.info("Running the graph code:")
+            logging.info(graph_code)
 
             # clear the plot
             plt.clf()
@@ -204,22 +204,22 @@ ATTENTION: YOUR REPLIES MUST BE IN JSON FORMAT. NO INTRODUCTION TEXTS, NO COMMEN
             except Exception as e:
                 # turn e into a string that is json serializable
                 e = str(e)
-                print(f"Error: {e}")
+                logging.info(f"Error: {e}")
                 traceback.print_exc()
-                error_message.append([f"cell{i}", f"Error: {e}"])
+                error_list.append([f"cell{i}", f"Error: {e}"])
 
             # if there is an error, send the error message back to ChatGPT
-            if error_message:
+            if error_list:
                 messages.append({"role": "assistant", "content": json_string})
 
-                error_message_content = "here is a list of errors:\n"
-                for error in error_message:
-                    error_message_content += f"{error[0]}: {error[1]}\n"
-                error_message_content += "Please fix the errors and send the whole json(with the 3 cells) again."
+                error_list_content = "here is a list of errors:\n"
+                for error in error_list:
+                    error_list_content += f"{error[0]}: {error[1]}\n"
+                error_list_content += "Please fix the errors and send the whole json(with the 3 cells) again."
 
-                messages.append({"role": "user", "content": str(error_message)})
-                print("There was an error, sending the error message back to ChatGPT...")
-                print(messages[-1])
+                messages.append({"role": "user", "content": str(error_list)})
+                logging.info("There was an error, sending the error message back to ChatGPT...")
+                logging.info(messages[-1])
 
     # for now we will just return the json string
     return json_dict
@@ -244,11 +244,11 @@ def get_conclusion(analysis_report, df):
 
         # Run the graph_to_text_code
         try:
-            print(f"Running {cell_key} graph_to_text_code:")
-            print(graph_to_text_code)
+            logging.info(f"Running {cell_key} graph_to_text_code:")
+            logging.info(graph_to_text_code)
             exec(graph_to_text_code)
         except Exception as e:
-            print(f"Error in {cell_key} graph_to_text_code: {e}")
+            logging.info(f"Error in {cell_key} graph_to_text_code: {e}")
             traceback.print_exc()
             conclusions[cell_key] = f"Error in {cell_key} graph_to_text_code: {e}"
             continue
@@ -258,7 +258,7 @@ def get_conclusion(analysis_report, df):
         try:
             graph_to_text_df = pd.read_csv(csv_path)
         except Exception as e:
-            print(f"Error reading {csv_path}: {e}")
+            logging.info(f"Error reading {csv_path}: {e}")
             traceback.print_exc()
             conclusions[cell_key] = f"Error reading {csv_path}: {e}"
             continue
@@ -277,18 +277,18 @@ If you want to format the text for better readability, you can use html tags."""
     messages.append({"role": "user", "content": prompt})
 
     # Send the request to the OpenAI API
-    print("Sending request to OpenAI API...")
-    print("Number of tokens in prompt:", num_tokens_from_string(prompt, "gpt-3.5-turbo"))
+    logging.info("Sending request to OpenAI API...")
+    logging.info("Number of tokens in prompt:", num_tokens_from_string(prompt, "gpt-3.5-turbo"))
     try:
         response = openai.ChatCompletion.create(
-            model=app.config.get('MODEL').get('CONCLUSION'),
+            model=Config.get('MODEL').get('CONCLUSION'),
             messages=messages
         )
     except Exception as e:
-        print(f"Error while sending request to OpenAI API: {e}")
+        logging.info(f"Error while sending request to OpenAI API: {e}")
         traceback.print_exc()
         return {"error": f"Error while sending request to OpenAI API: {e}"}
-    print("Respose received!")
+    logging.info("Respose received!")
     # Extract the response from the API
     conclusion = response.choices[0].message.content.strip()
 
@@ -329,3 +329,12 @@ def get_delimiter(file):
 
     return delimiter
 
+def call_gpt(messages: list, model: str, temperature: float = 1, presence_penalty: float = 0):
+    """This function will call the OpenAI API and return the response"""
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=messages,
+        temperature=temperature,
+        presence_penalty=presence_penalty
+    )
+    return response
