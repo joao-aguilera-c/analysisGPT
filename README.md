@@ -1,7 +1,7 @@
-DataAnalysisGPT - A Flask-based data analysis tool using OpenAI's GPT-3
+DataAnalysisGPT - A Flask-based data analysis tool using OpenAI's ChatGPT
 -----------------------------------------------------------------------
 
-This tool uses a Flask web application to analyze a CSV file with the help of OpenAI's GPT-3 language model. The tool:
+This tool uses a Flask web application to analyze a CSV file with the help of OpenAI's ChatGPT language model. The tool:
 
 *   Accepts CSV files as input and can infer the proper delimiter
 *   Provides a description of the dataset
